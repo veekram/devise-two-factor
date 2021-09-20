@@ -8,7 +8,16 @@ module Devise
 
         unless resource && validate(resource){ hashed = true; resource.valid_password?(password) }
           mapping.to.new.password = password if !hashed && Devise.paranoid
-          return fail!(:not_found_in_database)
+          if resource.send(:last_attempt?)
+            return fail!(:last_attempt)
+          elsif resource.send(:attempts_exceeded?)
+            resource.send(:lock_access!)
+            return fail!(:locked)
+          elsif resource.send(:access_locked?)
+            return fail!(:locked)
+          else
+            return fail!(:not_found_in_database)
+          end
         end
 
         if resource.otp_required_for_login
